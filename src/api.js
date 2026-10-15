@@ -16,6 +16,7 @@ export const api = {
     request('/api/attendance', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ student_id, status, attendance_date, comment }) }),
   monthlyRecap: (month) => request(`/api/attendance-summary?month=${encodeURIComponent(month)}`),
   studentNotes: () => request('/api/student-notes'),
+  deleteStudentNote: (id) => request(`/api/student-notes/${id}`, { method: 'DELETE' }),
   addStudentNote: (student_name, category, note, photo) => {
     // Jika ada foto, kirim sebagai multipart/form-data agar backend mengunggah ke Neon Object Storage.
     if (photo) {

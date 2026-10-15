@@ -1,6 +1,6 @@
 import express from 'express';
 import { neon } from '@neondatabase/serverless';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multer from 'multer';
 import 'dotenv/config';
@@ -233,6 +233,30 @@ app.post('/api/student-notes', upload.single('photo'), async (req, res) => {
     res.json({ ...rows[0], photoUrl, photoMime });
   } catch (err) {
     res.status(500).json({ error: 'Gagal menyimpan catatan siswa' });
+  }
+});
+
+// Hapus catatan siswa beserta fotonya di object storage.
+app.delete('/api/student-notes/:id', async (req, res) => {
+  if (!sql) return res.status(503).json({ error: 'DATABASE_URL belum dikonfigurasi' });
+  const { id } = req.params;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: 'id tidak valid' });
+  try {
+    // Ambil kunci foto lebih dulu agar objeknya dapat dihapus setelah baris database terhapus.
+    const rows = await sql`select photo_key from public.student_notes where id = ${id}`;
+    if (!rows.length) return res.status(404).json({ error: 'Catatan tidak ditemukan' });
+    const photoKey = rows[0].photo_key;
+    await sql`delete from public.student_notes where id = ${id}`;
+    if (photoKey && s3) {
+      try {
+        await s3.send(new DeleteObjectCommand({ Bucket: storageBucket, Key: photoKey }));
+      } catch {
+        // Baris database sudah terhapus; kegagalan hapus objek tidak dianggap fatal.
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal menghapus catatan siswa' });
   }
 });
 

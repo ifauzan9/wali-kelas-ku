@@ -85,6 +85,8 @@
 .category-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:5px 7px;border-radius:6px;font-weight:600}
 .category-remove{border:0;background:transparent;color:inherit;opacity:.6;display:grid;place-items:center;padding:0;width:15px;height:15px;border-radius:4px}
 .category-remove:hover{opacity:1;background:#00000012}
+.note-remove{border:0;background:transparent;color:#9aa0b4;opacity:.7;display:grid;place-items:center;padding:0;width:20px;height:20px;border-radius:5px;margin-left:auto}
+.note-remove:hover{opacity:1;color:#e05252;background:#fdeaea}
 .category-empty{font-size:11px;color:#a0a3b0}
 .category-form{display:flex;gap:8px;margin-top:12px}
 .category-form input{flex:1;min-width:0;height:36px;border:1px solid #e7e9ef;background:#fff;border-radius:8px;padding:0 11px;font-size:12px;color:#4a4d63}
