@@ -19,7 +19,18 @@ Neon adalah PostgreSQL serverless. Karena browser tidak boleh menyimpan kredensi
    DATABASE_URL=postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require
    PORT=3001
    ```
-3. Jangan commit file `.env`. Jangan bagikan password database.
+3. Isi juga autentikasi:
+   ```env
+   APP_PASSWORD=password-wali-kelas-yang-kuat
+   SESSION_SECRET=string-acak-panjang
+   ```
+   Buat `SESSION_SECRET` acak dengan:
+   ```sh
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+4. Jangan commit file `.env`. Jangan bagikan password database maupun `SESSION_SECRET`.
+
+> Aplikasi dilindungi login password tunggal. Tanpa `APP_PASSWORD`, seluruh endpoint `/api` menolak permintaan (503).
 
 ## 4. Aktifkan Neon Object Storage (untuk foto catatan siswa)
 Neon menyediakan **Object Storage** yang kompatibel dengan S3. Foto catatan siswa disimpan di sini, sedangkan databasenya hanya menyimpan kunci (key) foto.
@@ -82,14 +93,16 @@ Langkah deploy:
 1. Push proyek ke GitHub, lalu import repo di [Vercel](https://vercel.com/new).
 2. Vercel mendeteksi Vite dan menjalankan `vite build`.
 3. Tambahkan **Environment Variables** (Production + Preview) di Project Settings:
-   `DATABASE_URL`, `NEON_STORAGE_BUCKET`, `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`. (`PORT` tidak perlu.)
+   `DATABASE_URL`, `APP_PASSWORD`, `SESSION_SECRET`, `NEON_STORAGE_BUCKET`, `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`. (`PORT` tidak perlu.)
 4. Deploy, lalu buka `https://<domain>/api/health` — pastikan `database` dan `storage` bernilai `true`.
 
 Catatan: runtime memakai Node.js 24 (lihat `engines` di `package.json`). Node 20 sudah tidak didukung Vercel untuk deployment baru.
 
 ## Catatan penting tentang keamanan
 - Backend hanya menerima data tertentu dan memakai parameterized query, sehingga aman dari SQL injection.
-- Aplikasi belum memiliki login. Sebelum memakai data siswa asli, tambahkan autentikasi (misalnya token/session) di server API agar hanya wali kelas berwenang yang bisa membaca dan menulis.
+- Aplikasi dilindungi **login password tunggal** (`APP_PASSWORD`). Seluruh halaman dashboard hanya tampil setelah login, dan semua endpoint `/api/*` (selain `/api/login`, `/api/logout`, `/api/session`) menolak permintaan tanpa sesi yang valid.
+- Sesi disimpan di **cookie HttpOnly** berisi token bertanda tangan HMAC-SHA256 (`SESSION_SECRET`). Cookie tidak memuat password, dan ditandai `Secure` di produksi.
+- Gunakan `APP_PASSWORD` yang kuat dan `SESSION_SECRET` acak panjang. Jangan bagikan keduanya.
 - Bucket foto disetel **private**. Backend membuat **presigned URL** berumur 1 jam agar foto tetap bisa tampil tanpa membuat bucket menjadi publik.
 - Batas foto: **JPG/PNG, maksimal 5 MB**.
 - Jangan memakai connection string berisi password di kode frontend.

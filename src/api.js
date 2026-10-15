@@ -1,16 +1,29 @@
 // Klien API backend (Neon). Frontend tidak pernah menyentuh database secara langsung.
 const jsonHeaders = { 'Content-Type': 'application/json' };
 
+// Error khusus saat sesi berakhir, agar UI dapat mengarahkan ke halaman login.
+export class UnauthorizedError extends Error {
+  constructor(message) {
+    super(message || 'Belum masuk');
+    this.name = 'UnauthorizedError';
+  }
+}
+
 async function request(path, options) {
   const res = await fetch(path, options);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new UnauthorizedError(body.error);
     throw new Error(body.error || `Permintaan gagal (${res.status})`);
   }
   return res.json();
 }
 
 export const api = {
+  login: (password) =>
+    request('/api/login', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ password }) }),
+  logout: () => request('/api/logout', { method: 'POST' }),
+  session: () => request('/api/session'),
   students: (date) => request(date ? `/api/students?date=${encodeURIComponent(date)}` : '/api/students'),
   saveAttendance: (student_id, status, attendance_date, comment) =>
     request('/api/attendance', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ student_id, status, attendance_date, comment }) }),

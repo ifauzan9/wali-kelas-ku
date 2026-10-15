@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { api } from './api';
+import { api, UnauthorizedError } from './api';
+import Login from './Login.jsx';
 import { readStudentFile, downloadTemplate, downloadRecap, TEMPLATE_HEADERS } from './excel';
-import { LayoutDashboard, ClipboardCheck, Users, BookOpenText, Settings, Search, Bell, ChevronDown, CalendarDays, Download, Plus, Check, Clock3, HeartPulse, CircleX, ArrowUpRight, MoreHorizontal, X, Sparkles, GraduationCap, Menu, Upload, FileSpreadsheet, Trash2, CalendarRange, Table2, PlaneTakeoff } from 'lucide-react';
+import { LayoutDashboard, ClipboardCheck, Users, BookOpenText, Settings, Search, Bell, ChevronDown, CalendarDays, Download, Plus, Check, Clock3, HeartPulse, CircleX, ArrowUpRight, MoreHorizontal, X, Sparkles, GraduationCap, Menu, Upload, FileSpreadsheet, Trash2, CalendarRange, Table2, PlaneTakeoff, LogOut } from 'lucide-react';
 
 const initialStudents = [
   { id:'s1',name:'Alya Putri Ramadhani',nis:'10241',gender:'P',status:'Hadir',avatar:'AP',color:'violet' },{ id:'s2',name:'Bima Arya Pratama',nis:'10242',gender:'L',status:'Hadir',avatar:'BA',color:'blue' },{ id:'s3',name:'Citra Maharani',nis:'10243',gender:'P',status:'Sakit',avatar:'CM',color:'orange' },{ id:'s4',name:'Daffa Rizky Saputra',nis:'10244',gender:'L',status:'Hadir',avatar:'DR',color:'green' },{ id:'s5',name:'Nadia Zahra Azzahra',nis:'10245',gender:'P',status:'Izin',avatar:'NZ',color:'pink' },{ id:'s6',name:'Rafi Alfarizi',nis:'10246',gender:'L',status:'Hadir',avatar:'RA',color:'cyan' },{ id:'s7',name:'Salsabila Nur Fitri',nis:'10247',gender:'P',status:'Hadir',avatar:'SN',color:'yellow' }];
@@ -23,6 +24,8 @@ const statusMeta={Hadir:{icon:Check,className:'present'},Izin:{icon:Clock3,class
 const initials=(name)=>String(name).split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase();
 
 export default function App(){
+ // Status autentikasi: 'checking' (memeriksa sesi), 'out' (belum masuk), 'in' (sudah masuk).
+ const [authState,setAuthState]=useState('checking');
  const [tab,setTab]=useState('Dashboard'); const [students,setStudents]=useState(initialStudents); const [notes,setNotes]=useState(initialNotes); const [categories,setCategories]=useState(initialCategories); const [classNote,setClassNote]=useState(''); const [query,setQuery]=useState(''); const [modal,setModal]=useState(''); const [notice,setNotice]=useState(''); const [mobileMenu,setMobileMenu]=useState(false);
  const [dataConnected,setDataConnected]=useState(false); const [dataError,setDataError]=useState('');
  const [importRows,setImportRows]=useState(null); const [importName,setImportName]=useState(''); const [importBusy,setImportBusy]=useState(false);
@@ -33,6 +36,9 @@ export default function App(){
  const [attDate,setAttDate]=useState(todayISO());
  const [recapMonth,setRecapMonth]=useState(thisMonthISO()); const [recap,setRecap]=useState(null); const [recapBusy,setRecapBusy]=useState(false); const [recapView,setRecapView]=useState('ringkasan'); const [attendanceVersion,setAttendanceVersion]=useState(0);
  useEffect(()=>{if(!mobileMenu)return;const onKey=e=>{if(e.key==='Escape')setMobileMenu(false);};window.addEventListener('keydown',onKey);return ()=>window.removeEventListener('keydown',onKey);},[mobileMenu]);
+ // Periksa sesi sekali saat aplikasi dimuat.
+ useEffect(()=>{let active=true;(async()=>{try{const s=await api.session();if(active)setAuthState(s.authenticated?'in':'out');}catch{if(active)setAuthState('out');}})();return ()=>{active=false;};},[]);
+ const logout=async()=>{try{await api.logout();}catch{/* abaikan */}setAuthState('out');};
  useEffect(()=>{
   let active=true;
   const load=async()=>{
@@ -41,7 +47,10 @@ export default function App(){
     if(!active)return;
     if(rows&&rows.length){setStudents(rows.map(s=>({...s,status:s.status||'Hadir'})));setDataConnected(true);setDataError('');}
    }catch(err){
-    if(active){setDataConnected(false);setDataError(err.message);}
+    if(active){
+     if(err instanceof UnauthorizedError){setAuthState('out');return;}
+     setDataConnected(false);setDataError(err.message);
+    }
    }
   };
   load();
@@ -55,7 +64,7 @@ export default function App(){
     const data=await api.studentNotes();
     if(!active)return;
     if(data&&data.length)setNotes(data.map(n=>({id:n.id,name:n.student_name,type:n.category,text:n.note,photoUrl:n.photoUrl||null,time:new Date(n.created_at).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}),avatar:initials(n.student_name),color:'violet'})));
-   }catch{/* preview tetap memakai data contoh */}
+   }catch(err){if(err instanceof UnauthorizedError){if(active)setAuthState('out');}/* preview tetap memakai data contoh */}
   };
   load();
   const timer=setInterval(load,30000);
@@ -68,7 +77,7 @@ export default function App(){
     const data=await api.noteCategories();
     if(!active)return;
     if(data&&data.length)setCategories(data);
-   }catch{/* preview tetap memakai kategori bawaan */}
+   }catch(err){if(err instanceof UnauthorizedError){if(active)setAuthState('out');}/* preview tetap memakai kategori bawaan */}
   };
   load();
   const timer=setInterval(load,60000);
@@ -110,9 +119,12 @@ export default function App(){
  const removeStudent=async(student)=>{if(!window.confirm(`Hapus ${student.name} dari daftar siswa?`))return;setStudents(prev=>prev.filter(s=>s.id!==student.id));try{await api.deleteStudent(student.id);flash('Siswa dihapus');}catch(err){flash(dataConnected?'Gagal menghapus siswa':`Mode pratinjau: ${err.message}`);await reloadStudents();}};
  const nav=[['Dashboard',LayoutDashboard],['Absensi',ClipboardCheck],['Rekap Bulan',CalendarRange],['Data Siswa',Users],['Catatan',BookOpenText]];
  const changeTab=(name)=>{setTab(name);setMobileMenu(false);};
+ // Tampilkan layar login sebelum dashboard dirender.
+ if(authState==='checking')return <div className="login-screen"><div className="login-loading">Memeriksa sesi...</div></div>;
+ if(authState==='out')return <Login onSuccess={()=>setAuthState('in')}/>;
  return <div className="app-shell">
   {mobileMenu&&<div className="sidebar-overlay" onClick={()=>setMobileMenu(false)} aria-hidden="true"/>}
-  <aside className={`sidebar ${mobileMenu?'open':''}`}><div className="brand"><div className="brand-mark"><GraduationCap size={23}/></div><span>kelas<span className="brand-dot">.</span><small>WALI KELAS</small></span></div><div className="school-chip"><div className="school-icon">S</div><div><b>SMA Nusantara</b><small>Tahun Ajaran 2024/2025</small></div><ChevronDown size={16}/></div><p className="nav-label">MENU UTAMA</p><nav>{nav.map(([n,I])=><button key={n} className={`nav-item ${tab===n?'active':''}`} onClick={()=>changeTab(n)}><I size={19}/>{n}{n==='Absensi'&&<span className="nav-count">{students.length}</span>}</button>)}</nav><div className="sidebar-bottom"><div className="help-card"><div className="help-icon"><Sparkles size={16}/></div><b>Butuh bantuan?</b><p>Temukan tips menggunakan Kelas.</p><button onClick={()=>flash('Pusat bantuan segera hadir')}>Kunjungi pusat bantuan <ArrowUpRight size={14}/></button></div><button className="nav-item" onClick={()=>flash('Pengaturan segera hadir')}><Settings size={19}/>Pengaturan</button><div className="profile"><div className="profile-avatar">IF</div><div><b>ilhamF</b><small>Wali Kelas XI J</small></div><MoreHorizontal size={19}/></div></div></aside>
+  <aside className={`sidebar ${mobileMenu?'open':''}`}><div className="brand"><div className="brand-mark"><GraduationCap size={23}/></div><span>kelas<span className="brand-dot">.</span><small>WALI KELAS</small></span></div><div className="school-chip"><div className="school-icon">S</div><div><b>SMA Nusantara</b><small>Tahun Ajaran 2024/2025</small></div><ChevronDown size={16}/></div><p className="nav-label">MENU UTAMA</p><nav>{nav.map(([n,I])=><button key={n} className={`nav-item ${tab===n?'active':''}`} onClick={()=>changeTab(n)}><I size={19}/>{n}{n==='Absensi'&&<span className="nav-count">{students.length}</span>}</button>)}</nav><div className="sidebar-bottom"><div className="help-card"><div className="help-icon"><Sparkles size={16}/></div><b>Butuh bantuan?</b><p>Temukan tips menggunakan Kelas.</p><button onClick={()=>flash('Pusat bantuan segera hadir')}>Kunjungi pusat bantuan <ArrowUpRight size={14}/></button></div><button className="nav-item" onClick={()=>flash('Pengaturan segera hadir')}><Settings size={19}/>Pengaturan</button><div className="profile"><div className="profile-avatar">IF</div><div><b>ilhamF</b><small>Wali Kelas XI J</small></div><button className="logout-btn" onClick={logout} title="Keluar" aria-label="Keluar"><LogOut size={17}/></button></div></div></aside>
   <main className="main"><header className="topbar"><button className="mobile-toggle" onClick={()=>setMobileMenu(!mobileMenu)}><Menu/></button><div className="breadcrumbs">Kelas XI J <span>/</span> <b>{tab}</b></div><div className="top-actions"><div className="today-pill"><CalendarDays size={16}/>{dateLabel}</div><button className="icon-btn" aria-label="Notifikasi" onClick={()=>flash('Tidak ada notifikasi baru')}><Bell size={19}/><i/></button><div className="top-avatar">IF</div></div></header>
    <div className="content"><div className="welcome-row"><div><div className="eyebrow">ADMINISTRASI KELAS <span>•</span> SEMESTER GENAP</div><h1>{tab==='Dashboard'?'Selamat pagi, ilhamF':tab==='Absensi'?'Absensi Kehadiran':tab==='Rekap Bulan'?'Rekap Absen Bulanan':tab==='Data Siswa'?'Data Siswa':'Catatan Kelas'} <span className="wave">{tab==='Dashboard'?'👋':''}</span></h1><p className="subtitle">{tab==='Dashboard'?'Semoga harimu menyenangkan. Yuk, pantau perkembangan kelas hari ini.':tab==='Absensi'?'Kelola kehadiran siswa kelas XI J hari ini.':tab==='Rekap Bulan'?'Ringkasan kehadiran seluruh siswa per bulan.':tab==='Data Siswa'?'Informasi lengkap siswa di kelas XI J.':'Simpan hal-hal penting tentang siswa dan kegiatan kelas.'}</p></div><div className="heading-actions"><button className="btn btn-light" onClick={()=>flash('Rekap kehadiran siap diunduh')}><Download size={16}/> Unduh laporan</button><button className="btn btn-primary" onClick={()=>setModal('note')}><Plus size={17}/> Tambah catatan</button></div></div>
    {!dataConnected&&<div className="setup-banner"><div className="setup-bulb">✦</div><div><b>{dataError?'Database belum terhubung':'Mode pratinjau aktif'}</b><p>{dataError?`${dataError}. `:'Hubungkan Neon '} Ikuti langkah setup di <a href="./NEON_SETUP.md" target="_blank">panduan Neon</a>.</p></div><button onClick={()=>flash('Buat file .env dan jalankan server API mengikuti panduan Neon')}>Atur Neon <ArrowUpRight size={15}/></button></div>}

@@ -87,6 +87,23 @@
 .category-remove:hover{opacity:1;background:#00000012}
 .note-remove{border:0;background:transparent;color:#9aa0b4;opacity:.7;display:grid;place-items:center;padding:0;width:20px;height:20px;border-radius:5px;margin-left:auto}
 .note-remove:hover{opacity:1;color:#e05252;background:#fdeaea}
+.login-screen{min-height:100vh;display:grid;place-items:center;background:linear-gradient(140deg,#f4f2ff,#f7f8fc 55%,#eef4ff);padding:24px}
+.login-loading{color:#8b90a4;font-size:13px}
+.login-card{width:100%;max-width:368px;background:#fff;border:1px solid #eceef4;border-radius:18px;padding:30px 28px;box-shadow:0 24px 60px #4b3d8f1a;display:flex;flex-direction:column;gap:14px}
+.login-brand{display:flex;align-items:center;gap:11px}
+.login-brand .brand-mark{width:40px;height:40px;border-radius:12px;background:#7459ed;color:#fff;display:grid;place-items:center;box-shadow:0 5px 12px #7459ed38}
+.login-brand b{font:800 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.5px;color:#20243a}
+.login-brand small{display:block;letter-spacing:1.4px;color:#9599aa;font:700 8px 'DM Sans',sans-serif;margin-top:1px}
+.login-card h1{font:800 20px 'Plus Jakarta Sans',sans-serif;margin:6px 0 0;color:#20243a}
+.login-card>p{margin:0;color:#8b90a4;font-size:12px}
+.login-field{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+.login-field>span{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#6b7089}
+.login-field input{height:44px;border:1px solid #e3e6f0;border-radius:11px;padding:0 14px;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s}
+.login-field input:focus{border-color:#7459ed;box-shadow:0 0 0 3px #7459ed1f}
+.login-error{background:#fdeaea;color:#c53d3d;font-size:12px;padding:9px 12px;border-radius:9px}
+.login-submit{height:46px;justify-content:center;margin-top:4px}
+.logout-btn{border:0;background:transparent;color:#9aa0b4;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;margin-left:auto}
+.logout-btn:hover{color:#e05252;background:#fdeaea}
 .category-empty{font-size:11px;color:#a0a3b0}
 .category-form{display:flex;gap:8px;margin-top:12px}
 .category-form input{flex:1;min-width:0;height:36px;border:1px solid #e7e9ef;background:#fff;border-radius:8px;padding:0 11px;font-size:12px;color:#4a4d63}

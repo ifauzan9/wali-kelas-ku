@@ -3,11 +3,17 @@ import { neon } from '@neondatabase/serverless';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import multer from 'multer';
+import crypto from 'node:crypto';
 import 'dotenv/config';
+import {
+  isAuthenticated,
+  sessionCookieHeader,
+  clearCookieHeader,
+} from './session.js';
 
 // Definisi aplikasi Express tanpa app.listen, agar dapat dipakai bersama:
 // - server/index.js untuk pengembangan lokal (long-running server).
-// - api/[...path].js sebagai Vercel Serverless Function.
+// - api/index.js sebagai Vercel Serverless Function.
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
@@ -48,6 +54,50 @@ const upload = multer({
     }
     cb(null, true);
   },
+});
+
+// ---- Autentikasi ----
+// Password tunggal wali kelas via APP_PASSWORD. Sesi disimpan pada cookie HttpOnly bertanda tangan.
+const appPassword = process.env.APP_PASSWORD || '';
+
+// Bandingkan password secara waktu-tetap untuk menghindari timing attack.
+function passwordMatches(input) {
+  if (!appPassword) return false;
+  const a = Buffer.from(String(input));
+  const b = Buffer.from(appPassword);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+app.post('/api/login', (req, res) => {
+  if (!appPassword) {
+    return res.status(503).json({ error: 'APP_PASSWORD belum dikonfigurasi' });
+  }
+  const { password } = req.body || {};
+  if (!passwordMatches(password)) {
+    return res.status(401).json({ error: 'Password salah' });
+  }
+  res.setHeader('Set-Cookie', sessionCookieHeader());
+  res.json({ ok: true });
+});
+
+app.post('/api/logout', (req, res) => {
+  res.setHeader('Set-Cookie', clearCookieHeader());
+  res.json({ ok: true });
+});
+
+app.get('/api/session', (req, res) => {
+  res.json({ authenticated: isAuthenticated(req), configured: Boolean(appPassword) });
+});
+
+// Middleware: lindungi seluruh endpoint /api selain rute autentikasi di atas.
+app.use('/api', (req, res, next) => {
+  if (!appPassword) {
+    return res.status(503).json({ error: 'APP_PASSWORD belum dikonfigurasi' });
+  }
+  if (!isAuthenticated(req)) {
+    return res.status(401).json({ error: 'Belum masuk. Silakan login.' });
+  }
+  next();
 });
 
 // Hanya endpoint baca/tulis data kelas. Tidak menerima kueri SQL mentah dari klien.
