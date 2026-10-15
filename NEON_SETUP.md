@@ -75,8 +75,8 @@ Aplikasi ini juga dapat dijalankan di Vercel. Di sana Express **tidak** dijalank
 
 - `server/app.js` berisi definisi Express (dipakai bersama).
 - `server/index.js` menjalankan server lokal (`npm run server`).
-- `api/[...path].js` mengekspor app Express sebagai handler Serverless Function; semua rute `/api/*` masuk ke sini.
-- `vercel.json` mengatur build (`vite build`) dan output (`dist`).
+- `api/index.js` mengekspor app Express sebagai handler Serverless Function; semua rute `/api/*` diarahkan ke sini lewat `rewrites` di `vercel.json`.
+- `vercel.json` mengatur build (`vite build`), output (`dist`), dan rewrite `/api/(.*)` → `/api`.
 
 Langkah deploy:
 1. Push proyek ke GitHub, lalu import repo di [Vercel](https://vercel.com/new).
